@@ -1,0 +1,15 @@
+venv/
+passwords.db
+salt.bin
+master.key
+node_modules/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.sqlite
+*.sql
