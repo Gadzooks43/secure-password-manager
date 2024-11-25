@@ -1,10 +1,18 @@
-// main.js
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs');
 
 let pythonProcess;
 let commandQueue = [];
+let clipboardTimeout;
+
+const logFile = 'main.log';
+
+function log(message) {
+  const timestamp = new Date().toISOString();
+  fs.appendFileSync(logFile, `${timestamp} - ${message}\n`);
+}
 
 // Function to create the main application window
 function createWindow() {
@@ -18,26 +26,23 @@ function createWindow() {
     },
   });
 
-  // Load the index.html of the app.
   win.loadURL(`file://${path.join(__dirname, 'build/index.html')}`);
 
-  // Optionally open the DevTools (uncomment to use)
+  // Optionally open the DevTools
   // win.webContents.openDevTools();
-
-  // Emitted when the window is closed.
-  win.on('closed', () => {
-    // Dereference the window object
-    // win = null; // Uncomment if win is declared with let outside the function
-  });
 }
 
 // Function to start the Python backend process
 function startPythonProcess() {
-  // Adjust the path to your Python script as necessary
-  pythonProcess = spawn('python', [path.join(__dirname, 'backend', 'backend.py')]);
+  const isDev = process.env.NODE_ENV === 'development';
+
+  let pythonExecutable = 'python';
+  let scriptPath = path.join(__dirname, 'backend', 'backend.py');
+
+  pythonProcess = spawn(pythonExecutable, [scriptPath]);
 
   pythonProcess.stdout.on('data', (data) => {
-    const responses = data.toString().split('\n').filter(line => line.trim());
+    const responses = data.toString().split('\n').filter((line) => line.trim());
     responses.forEach((response) => {
       try {
         const parsedResponse = JSON.parse(response);
@@ -78,7 +83,6 @@ app.whenReady().then(() => {
   startPythonProcess();
 
   app.on('activate', () => {
-    // On macOS, re-create a window when the dock icon is clicked and no other windows are open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
@@ -86,7 +90,6 @@ app.whenReady().then(() => {
 // Quit when all windows are closed, except on macOS
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    // Terminate the Python process when the app is quitting
     if (pythonProcess) {
       pythonProcess.kill();
     }
@@ -94,12 +97,18 @@ app.on('window-all-closed', () => {
   }
 });
 
-// IPC handlers for communication between renderer and main process
+app.on('before-quit', () => {
+  clipboard.clear();
+});
+
+
+// IPC handlers
 ipcMain.handle('set-master-password', async (event, masterPassword) => {
   try {
     const response = await sendCommandToPython('set_master_password', { master_password: masterPassword });
     return response;
   } catch (error) {
+    log(`Error in set-master-password IPC handler: ${error}`);
     console.error('Error in set-master-password IPC handler:', error);
     throw error;
   }
@@ -110,7 +119,30 @@ ipcMain.handle('add-password', async (event, data) => {
     const response = await sendCommandToPython('add_password', data);
     return response;
   } catch (error) {
+    log(`Error in add-password IPC handler: ${error}`);
     console.error('Error in add-password IPC handler:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('update-password', async (event, data) => {
+  try {
+    const response = await sendCommandToPython('update_password', data);
+    return response;
+  } catch (error) {
+    log(`Error in update-password IPC handler: ${error}`);
+    console.error('Error in update-password IPC handler:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('delete-password', async (event, data) => {
+  try {
+    const response = await sendCommandToPython('delete_password', data);
+    return response;
+  } catch (error) {
+    log(`Error in delete-password IPC handler: ${error}`);
+    console.error('Error in delete-password IPC handler:', error);
     throw error;
   }
 });
@@ -120,17 +152,86 @@ ipcMain.handle('get-passwords', async () => {
     const response = await sendCommandToPython('get_passwords', {});
     return response;
   } catch (error) {
+    log(`Error in get-passwords IPC handler: ${error}`);
     console.error('Error in get-passwords IPC handler:', error);
     throw error;
   }
 });
 
+ipcMain.handle('is-master-password-set', async () => {
+  try {
+    const response = await sendCommandToPython('is_master_password_set', {});
+    return response;
+  } catch (error) {
+    log(`Error in is-master-password-set IPC handler: ${error}`);
+    console.error('Error in is-master-password-set IPC handler:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('setup-mfa', async () => {
+  try {
+    const response = await sendCommandToPython('setup_mfa', {});
+    return response;
+  } catch (error) {
+    log(`Error in setup-mfa IPC handler: ${error}`);
+    console.error('Error in setup-mfa IPC handler:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('verify-mfa', async (event, token) => {
+  try {
+    const response = await sendCommandToPython('verify_mfa', { token });
+    return response;
+  } catch (error) {
+    log(`Error in verify-mfa IPC handler: ${error}`);
+    console.error('Error in verify-mfa IPC handler:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('is-mfa-enabled', async () => {
+  try {
+    const response = await sendCommandToPython('is_mfa_enabled', {});
+    return response;
+  } catch (error) {
+    log(`Error in is-mfa-enabled IPC handler: ${error}`);
+    console.error('Error in is-mfa-enabled IPC handler:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('copy-to-clipboard', async (event, text) => {
+  try {
+    clipboard.writeText(text);
+
+    // Clear any existing timeout
+    if (clipboardTimeout) {
+      clearTimeout(clipboardTimeout);
+    }
+
+    // Set a timeout to clear the clipboard after 15 seconds
+    clipboardTimeout = setTimeout(() => {
+      clipboard.clear();
+      clipboardTimeout = null;
+    }, 15000); // 15000 milliseconds = 15 seconds
+
+    return { status: 'success' };
+  } catch (error) {
+    log(`Error copying to clipboard: ${error}`);
+    console.error('Error copying to clipboard:', error);
+    return { status: 'error', message: error.message };
+  }
+});
+
 // Handle unexpected errors
 process.on('uncaughtException', (error) => {
+  log(`Uncaught exception: ${error}`);
   console.error('An uncaught error occurred:', error);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
+  log(`Unhandled promise rejection: ${reason}`);
   console.error('Unhandled promise rejection:', reason);
 });
