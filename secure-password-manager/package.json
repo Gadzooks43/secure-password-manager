@@ -13,7 +13,7 @@
     "electron-pack": "npm run build-backend && npm run build-frontend && node build.js"
   },
   "build": {
-    "appId": "com.yourname.securepasswordmanager",
+    "appId": "com.isaackenney.securepasswordmanager",
     "productName": "Secure Password Manager",
     "files": [
       "build/**/*",
@@ -24,7 +24,7 @@
     ],
     "extraResources": [
       {
-        "from": "backend/dist",
+        "from": "backend/backend/dist/win",
         "to": "backend/",
         "filter": [
           "**/*"
@@ -46,7 +46,10 @@
         "nsis",
         "zip"
       ],
-      "publisherName": "Your Name"
+      "icon": "keyicon.ico",
+      "signtoolOptions": {
+        "publisherName": "SOFT 469 UNL"
+      }
     },
     "linux": {
       "target": [
@@ -60,7 +63,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A secure and user-friendly password manager application with robust encryption and multi-factor authentication.",
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",

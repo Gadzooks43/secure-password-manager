@@ -18,3 +18,4 @@ master_password.bin
 totp_secret.bin
 dist/
 build/
+totp_secret.bin

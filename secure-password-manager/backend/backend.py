@@ -12,6 +12,7 @@ import pyotp
 import qrcode
 from io import BytesIO
 import logging
+import traceback
 
 DB_FILE = 'passwords.db'
 SALT_FILE = 'salt.bin'
@@ -21,9 +22,12 @@ MFA_ENABLED = False  # Set to False to disable MFA globally
 
 # Configure logging
 logging.basicConfig(
-    filename='backend.log',
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),  # Log to stdout
+        logging.StreamHandler(sys.stderr)   # Log to stderr
+    ]
 )
 
 def hash_master_password(password):
@@ -34,13 +38,14 @@ def hash_master_password(password):
         with open(MASTER_PASSWORD_FILE, 'wb') as f:
             f.write(salt + iterations.to_bytes(4, 'big') + password_hash)
         os.chmod(MASTER_PASSWORD_FILE, stat.S_IRUSR | stat.S_IWUSR)
-        logging.info('Master password hashed and stored')
+        logging.info('Master password hashed and stored successfully.')
     except Exception as e:
-        logging.exception('Error hashing master password')
+        logging.error('Error hashing master password:', exc_info=True)
 
 def verify_master_password(password):
     try:
         if not os.path.exists(MASTER_PASSWORD_FILE):
+            logging.warning('Master password file does not exist.')
             return False, None
 
         with open(MASTER_PASSWORD_FILE, 'rb') as f:
@@ -52,11 +57,13 @@ def verify_master_password(password):
 
         if hmac.compare_digest(password_hash, stored_password_hash):
             master_key = get_master_key(password, iterations)
+            logging.info('Master password verified successfully.')
             return True, master_key
         else:
+            logging.warning('Master password verification failed.')
             return False, None
     except Exception as e:
-        logging.exception('Error verifying master password')
+        logging.error('Error verifying master password:', exc_info=True)
         return False, None
 
 def get_master_key(password, iterations=300_000):
@@ -69,9 +76,10 @@ def get_master_key(password, iterations=300_000):
             with open(SALT_FILE, 'wb') as f:
                 f.write(salt)
         master_key = PBKDF2(password.encode(), salt, dkLen=32, count=iterations, hmac_hash_module=SHA256)
+        logging.debug('Master key derived successfully.')
         return master_key
     except Exception as e:
-        logging.exception('Error generating master key')
+        logging.error('Error generating master key:', exc_info=True)
         return None
 
 def encrypt(master_key, plaintext):
@@ -80,12 +88,13 @@ def encrypt(master_key, plaintext):
         cipher = AES.new(master_key, AES.MODE_GCM, nonce=nonce)
         ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode())
         # Store nonce + tag + ciphertext
-        return base64.b64encode(nonce + tag + ciphertext).decode()
+        encrypted_data = base64.b64encode(nonce + tag + ciphertext).decode()
+        logging.debug('Data encrypted successfully.')
+        return encrypted_data
     except (ValueError, KeyError) as e:
-        # Log the error and return None
-        print(f"Encryption failed: {e}", file=sys.stderr)
+        logging.error(f"Encryption failed: {e}", exc_info=True)
         return None
-    
+
 def decrypt(master_key, encrypted_data):
     try:
         encrypted_data = base64.b64decode(encrypted_data)
@@ -94,33 +103,45 @@ def decrypt(master_key, encrypted_data):
         ciphertext = encrypted_data[28:]   # Remaining bytes for ciphertext
         cipher = AES.new(master_key, AES.MODE_GCM, nonce=nonce)
         plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+        logging.debug('Data decrypted successfully.')
         return plaintext.decode()
     except (ValueError, KeyError) as e:
-        # Log the error and return None
-        print(f"Decryption failed: {e}", file=sys.stderr)
+        logging.error(f"Decryption failed: {e}", exc_info=True)
         return None
 
 def generate_totp_secret():
-    return pyotp.random_base32()
+    try:
+        totp_secret = pyotp.random_base32()
+        logging.info('TOTP secret generated successfully.')
+        return totp_secret
+    except Exception as e:
+        logging.error('Error generating TOTP secret:', exc_info=True)
+        return None
 
 def store_totp_secret(master_key, totp_secret):
     try:
         encrypted_secret = encrypt(master_key, totp_secret)
         with open(TOTP_SECRET_FILE, 'w') as f:
             f.write(encrypted_secret)
+        logging.info('TOTP secret encrypted and stored successfully.')
     except Exception as e:
-        logging.exception('Error storing TOTP secret')
+        logging.error('Error storing TOTP secret:', exc_info=True)
 
 def load_totp_secret(master_key):
     try:
         if not os.path.exists(TOTP_SECRET_FILE):
+            logging.warning('TOTP secret file does not exist.')
             return None
         with open(TOTP_SECRET_FILE, 'r') as f:
             encrypted_secret = f.read()
         totp_secret = decrypt(master_key, encrypted_secret)
+        if totp_secret:
+            logging.info('TOTP secret loaded and decrypted successfully.')
+        else:
+            logging.warning('Failed to decrypt TOTP secret.')
         return totp_secret
     except Exception as e:
-        logging.exception('Error loading TOTP secret')
+        logging.error('Error loading TOTP secret:', exc_info=True)
         return None
 
 def init_db():
@@ -133,7 +154,9 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 site TEXT NOT NULL,
                 username TEXT NOT NULL,
-                password TEXT NOT NULL
+                password TEXT NOT NULL,
+                notes TEXT,
+                category TEXT
             )
         ''')
 
@@ -142,30 +165,38 @@ def init_db():
 
         if 'notes' not in existing_columns:
             c.execute('ALTER TABLE passwords ADD COLUMN notes TEXT')
+            logging.info('Added "notes" column to "passwords" table.')
 
         if 'category' not in existing_columns:
             c.execute('ALTER TABLE passwords ADD COLUMN category TEXT')
+            logging.info('Added "category" column to "passwords" table.')
 
         conn.commit()
         conn.close()
+        logging.info('Database initialized successfully.')
     except Exception as e:
-        logging.exception('Error initializing database')
+        logging.error('Error initializing database:', exc_info=True)
 
 def add_password(master_key, site, username, password, notes='', category=''):
     try:
         encrypted_password = encrypt(master_key, password)
+        if encrypted_password is None:
+            raise ValueError('Password encryption failed.')
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('INSERT INTO passwords (site, username, password, notes, category) VALUES (?, ?, ?, ?, ?)',
-                (site, username, encrypted_password, notes, category))
+                  (site, username, encrypted_password, notes, category))
         conn.commit()
         conn.close()
+        logging.info(f'Password for site "{site}" added successfully.')
     except Exception as e:
-        logging.exception('Error adding password')
+        logging.error('Error adding password:', exc_info=True)
 
 def update_password(master_key, entry_id, site, username, password, notes, category):
     try:
         encrypted_password = encrypt(master_key, password)
+        if encrypted_password is None:
+            raise ValueError('Password encryption failed.')
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute('''
@@ -175,8 +206,9 @@ def update_password(master_key, entry_id, site, username, password, notes, categ
         ''', (site, username, encrypted_password, notes, category, entry_id))
         conn.commit()
         conn.close()
+        logging.info(f'Password for entry ID "{entry_id}" updated successfully.')
     except Exception as e:
-        logging.exception('Error updating password')
+        logging.error('Error updating password:', exc_info=True)
 
 def delete_password(entry_id):
     try:
@@ -185,8 +217,9 @@ def delete_password(entry_id):
         c.execute('DELETE FROM passwords WHERE id = ?', (entry_id,))
         conn.commit()
         conn.close()
+        logging.info(f'Password for entry ID "{entry_id}" deleted successfully.')
     except Exception as e:
-        logging.exception('Error deleting password')
+        logging.error('Error deleting password:', exc_info=True)
 
 def get_passwords(master_key):
     try:
@@ -209,11 +242,71 @@ def get_passwords(master_key):
                     'category': row[5],
                 })
             else:
-                # Log or handle entries that couldn't be decrypted
-                print(f"Failed to decrypt password for entry ID {row[0]}", file=sys.stderr)
+                logging.warning(f"Failed to decrypt password for entry ID {row[0]}")
+        logging.info('Retrieved all passwords successfully.')
         return result
     except Exception as e:
-        logging.exception('Error getting passwords')
+        logging.error('Error retrieving passwords:', exc_info=True)
+        return []
+
+def setup_mfa(master_key):
+    try:
+        if not MFA_ENABLED:
+            logging.warning('MFA is disabled globally.')
+            return {'error': 'MFA is disabled'}
+        totp_secret = generate_totp_secret()
+        if totp_secret is None:
+            raise ValueError('Failed to generate TOTP secret.')
+        store_totp_secret(master_key, totp_secret)
+        totp_uri = pyotp.totp.TOTP(totp_secret).provisioning_uri(name='Secure Password Manager', issuer_name='SecurePasswordManager')
+        # Generate QR code
+        qr = qrcode.QRCode()
+        qr.add_data(totp_uri)
+        qr.make(fit=True)
+        img = qr.make_image(fill='black', back_color='white')
+        buffered = BytesIO()
+        img.save(buffered, format='PNG')
+        qr_code_base64 = base64.b64encode(buffered.getvalue()).decode()
+        logging.info('MFA setup completed successfully.')
+        return {'status': 'MFA setup', 'qr_code': qr_code_base64}
+    except Exception as e:
+        logging.error('Error setting up MFA:', exc_info=True)
+        return {'error': 'Failed to set up MFA'}
+
+def verify_mfa(master_key, token):
+    try:
+        if not MFA_ENABLED:
+            logging.info('MFA is disabled globally. Verification bypassed.')
+            return {'status': 'MFA verified'}
+        totp_secret = load_totp_secret(master_key)
+        if totp_secret is None:
+            logging.warning('MFA is enabled but TOTP secret is not set up.')
+            return {'error': 'MFA not set up'}
+        totp = pyotp.TOTP(totp_secret)
+        if totp.verify(token):
+            logging.info('MFA token verified successfully.')
+            return {'status': 'MFA verified'}
+        else:
+            logging.warning('Invalid MFA token provided.')
+            return {'error': 'Invalid MFA token'}
+    except Exception as e:
+        logging.error('Error verifying MFA:', exc_info=True)
+        return {'error': 'Failed to verify MFA'}
+
+def is_mfa_enabled(master_key):
+    try:
+        if not MFA_ENABLED:
+            logging.info('MFA is disabled globally.')
+            return {'mfaEnabled': False}
+        if os.path.exists(TOTP_SECRET_FILE):
+            logging.info('MFA is enabled and TOTP secret is set up.')
+            return {'mfaEnabled': True}
+        else:
+            logging.info('MFA is enabled but TOTP secret is not set up.')
+            return {'mfaEnabled': False}
+    except Exception as e:
+        logging.error('Error checking if MFA is enabled:', exc_info=True)
+        return {'error': 'Failed to check MFA status'}
 
 def main():
     init_db()
@@ -231,7 +324,7 @@ def main():
                     response = {'isSet': True}
                 else:
                     response = {'isSet': False}
-                logging.debug(json.dumps(response))
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'set_master_password':
@@ -247,7 +340,7 @@ def main():
                     hash_master_password(data.get('master_password'))
                     master_key = get_master_key(data.get('master_password'))
                     response = {'status': 'Master password set'}
-                logging.debug(json.dumps(response))
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'add_password':
@@ -261,7 +354,7 @@ def main():
                     category = data.get('category', '')
                     add_password(master_key, site, username, password, notes, category)
                     response = {'status': 'Password added'}
-                logging.debug(json.dumps(response))
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'update_password':
@@ -276,7 +369,7 @@ def main():
                     category = data.get('category')
                     update_password(master_key, entry_id, site, username, password, notes, category)
                     response = {'status': 'Password updated'}
-                logging.debug(json.dumps(response))
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'delete_password':
@@ -286,7 +379,7 @@ def main():
                     entry_id = data.get('id')
                     delete_password(entry_id)
                     response = {'status': 'Password deleted'}
-                logging.debug(json.dumps(response))
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'get_passwords':
@@ -295,76 +388,49 @@ def main():
                 else:
                     passwords = get_passwords(master_key)
                     response = {'passwords': passwords}
-                logging.debug(json.dumps(response))
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'setup_mfa':
                 if master_key is None:
                     response = {'error': 'Master password not verified'}
-                elif not MFA_ENABLED:
-                    response = {'error': 'MFA is disabled'}
                 else:
-                    totp_secret = generate_totp_secret()
-                    store_totp_secret(master_key, totp_secret)
-                    totp_uri = pyotp.totp.TOTP(totp_secret).provisioning_uri(name='Secure Password Manager', issuer_name='YourApp')
-                    # Generate QR code
-                    qr = qrcode.QRCode()
-                    qr.add_data(totp_uri)
-                    qr.make(fit=True)
-                    img = qr.make_image(fill='black', back_color='white')
-                    buffered = BytesIO()
-                    img.save(buffered, format='PNG')
-                    qr_code_base64 = base64.b64encode(buffered.getvalue()).decode()
-                    response = {'status': 'MFA setup', 'qr_code': qr_code_base64}
-                logging.debug(json.dumps(response))
+                    response = setup_mfa(master_key)
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'verify_mfa':
                 if master_key is None:
                     response = {'error': 'Master password not verified'}
-                elif not MFA_ENABLED:
-                    response = {'status': 'MFA verified'}
                 else:
-                    totp_secret = load_totp_secret(master_key)
-                    if totp_secret is None:
-                        response = {'error': 'MFA not set up'}
-                    else:
-                        token = data.get('token')
-                        totp = pyotp.TOTP(totp_secret)
-                        if totp.verify(token):
-                            response = {'status': 'MFA verified'}
-                        else:
-                            response = {'error': 'Invalid MFA token'}
-                logging.debug(json.dumps(response))
+                    token = data.get('token')
+                    response = verify_mfa(master_key, token)
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             elif command == 'is_mfa_enabled':
                 if master_key is None:
                     response = {'error': 'Master password not verified'}
-                elif not MFA_ENABLED:
-                    response = {'mfaEnabled': False}
                 else:
-                    if os.path.exists(TOTP_SECRET_FILE):
-                        response = {'mfaEnabled': True}
-                    else:
-                        response = {'mfaEnabled': False}
-                logging.debug(json.dumps(response))
+                    response = is_mfa_enabled(master_key)
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
             else:
                 response = {'error': 'Unknown command'}
-                logging.debug(json.dumps(response))
+                logging.warning(f"Unknown command received: {command}")
+                logging.debug(f"Response: {response}")
                 sys.stdout.flush()
 
         except json.JSONDecodeError as e:
-            logging.error(f"JSON decode error: {e}")
+            logging.error(f"JSON decode error: {e}", exc_info=True)
             response = {'error': 'Invalid JSON format'}
-            logging.debug(json.dumps(response))
+            logging.debug(f"Response: {response}")
             sys.stdout.flush()
         except Exception as e:
-            logging.exception("An unexpected error occurred")
+            logging.error("An unexpected error occurred:", exc_info=True)
             response = {'error': 'An internal error occurred'}
-            logging.debug(json.dumps(response))
+            logging.debug(f"Response: {response}")
             sys.stdout.flush()
 
 if __name__ == '__main__':
