@@ -5,7 +5,57 @@
   "scripts": {
     "start": "npm run build && electron .",
     "dev": "webpack serve",
-    "build": "webpack"
+    "build": "react-scripts build",
+    "build-win": "set BUILD_TARGET=win&& npm run electron-pack",
+    "electron-dev": "concurrently \"cross-env BROWSER=none npm start\" \"wait-on http://localhost:3000 && electron .\"",
+    "build-backend": "python build_backend.py",
+    "build-frontend": "webpack",
+    "electron-pack": "npm run build-backend && npm run build-frontend && node build.js"
+  },
+  "build": {
+    "appId": "com.yourname.securepasswordmanager",
+    "productName": "Secure Password Manager",
+    "files": [
+      "build/**/*",
+      "main.js",
+      "preload.js",
+      "backend/**",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist",
+        "to": "backend/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "publisherName": "Your Name"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "zip"
+      ],
+      "category": "Utility"
+    }
   },
   "keywords": [],
   "author": "",
@@ -18,6 +68,7 @@
     "babel-loader": "^9.2.1",
     "css-loader": "^7.1.2",
     "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "html-webpack-plugin": "^5.6.3",
     "style-loader": "^4.0.0",
     "webpack": "^5.96.1",
@@ -29,6 +80,7 @@
     "@emotion/styled": "^11.13.5",
     "@mui/icons-material": "^6.1.8",
     "@mui/material": "^6.1.8",
+    "electron-is-dev": "^3.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zxcvbn": "^4.4.2"

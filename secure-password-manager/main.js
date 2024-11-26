@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, clipboard } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const isDev = require('electron-is-dev');
 
 let pythonProcess;
 let commandQueue = [];
@@ -26,21 +27,36 @@ function createWindow() {
     },
   });
 
-  win.loadURL(`file://${path.join(__dirname, 'build/index.html')}`);
-
-  // Optionally open the DevTools
-  // win.webContents.openDevTools();
+  if (isDev) {
+    win.loadURL('http://localhost:3000');
+    // Optionally open the DevTools
+    win.webContents.openDevTools();
+  } else {
+    win.loadURL(`file://${path.join(__dirname, 'build/index.html')}`);
+  }
 }
 
 // Function to start the Python backend process
 function startPythonProcess() {
-  const isDev = process.env.NODE_ENV === 'development';
+  let backendExecutable = '';
 
-  let pythonExecutable = 'python';
-  let scriptPath = path.join(__dirname, 'backend', 'backend.py');
+  if (process.platform === 'win32') {
+    backendExecutable = 'backend.exe';
+  } else {
+    backendExecutable = 'backend';
+  }
 
-  pythonProcess = spawn(pythonExecutable, [scriptPath]);
+  const backendPath = isDev
+    ? path.join(__dirname, 'backend', 'dist', process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux', backendExecutable)
+    : path.join(process.resourcesPath, 'backend', process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux', backendExecutable);
 
+  if (fs.existsSync(backendPath)) {
+    pythonProcess = spawn(backendPath);
+  } else {
+    console.error('Backend executable not found:', backendPath);
+    log('Backend executable not found: ' + backendPath);
+  }
+  
   pythonProcess.stdout.on('data', (data) => {
     const responses = data.toString().split('\n').filter((line) => line.trim());
     responses.forEach((response) => {

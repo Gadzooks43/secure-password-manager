@@ -16,3 +16,5 @@ __pycache__/
 .env
 master_password.bin
 totp_secret.bin
+dist/
+build/
