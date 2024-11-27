@@ -89,6 +89,7 @@ function startPythonProcess(retryCount = 0) {
     cwd: path.dirname(backendPath),
     detached: true,
     stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true, // Hide the console window on Windows
   });
 
   // Handle stdout data from the backend
