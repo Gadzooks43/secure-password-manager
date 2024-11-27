@@ -49,8 +49,7 @@
       "icon": "keyicon.ico",
       "signtoolOptions": {
         "publisherName": "SOFT 469 UNL"
-      },
-      "console": false
+      }
     },
     "linux": {
       "target": [

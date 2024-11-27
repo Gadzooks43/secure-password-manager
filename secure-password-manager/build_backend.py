@@ -14,21 +14,30 @@ def build_backend():
         executable_name = 'backend.exe'
         pyinstaller_command = [
             sys.executable, '-m', 'PyInstaller',
-            '--onefile', '--name', executable_base_name, 'backend.py'
+            '--onefile',
+            '--windowed',  # Added this option
+            '--name', executable_base_name,
+            'backend.py'
         ]
         output_dir = os.path.join(backend_dir, 'win')
     elif system == 'Darwin':
         executable_name = 'backend'
         pyinstaller_command = [
             sys.executable, '-m', 'PyInstaller',
-            '--onefile', '--name', executable_base_name, 'backend.py'
+            '--onefile',
+            '--windowed',  # Added this option (optional for macOS)
+            '--name', executable_base_name,
+            'backend.py'
         ]
         output_dir = os.path.join(backend_dir, 'mac')
     elif system == 'Linux':
         executable_name = 'backend'
         pyinstaller_command = [
             sys.executable, '-m', 'PyInstaller',
-            '--onefile', '--name', executable_base_name, 'backend.py'
+            '--onefile',
+            '--windowed',  # Added this option (optional for Linux)
+            '--name', executable_base_name,
+            'backend.py'
         ]
         output_dir = os.path.join(backend_dir, 'linux')
     else:
