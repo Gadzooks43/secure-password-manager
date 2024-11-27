@@ -20,13 +20,11 @@ MASTER_PASSWORD_FILE = 'master_password.bin'
 TOTP_SECRET_FILE = 'totp_secret.bin'
 MFA_ENABLED = False  # Set to False to disable MFA globally
 
-# Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout),  # Log to stdout
-        logging.StreamHandler(sys.stderr)   # Log to stderr
+        logging.StreamHandler(sys.stderr)
     ]
 )
 
@@ -321,31 +319,33 @@ def main():
 
             if command == 'is_master_password_set':
                 if os.path.exists(MASTER_PASSWORD_FILE):
-                    response = {'isSet': True}
+                    response = {"isSet": True}
                 else:
-                    response = {'isSet': False}
-                logging.debug(f"Response: {response}")
+                    response = {"isSet": False}
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'set_master_password':
                 if os.path.exists(MASTER_PASSWORD_FILE):
                     # Verify existing master password
                     success, master_key = verify_master_password(data.get('master_password'))
                     if success:
-                        response = {'status': 'Master password verified'}
+                        response = {"status": "Master password verified"}
                     else:
-                        response = {'error': 'Incorrect master password'}
+                        response = {"error": "Incorrect master password"}
                 else:
                     # Set new master password
                     hash_master_password(data.get('master_password'))
                     master_key = get_master_key(data.get('master_password'))
-                    response = {'status': 'Master password set'}
-                logging.debug(f"Response: {response}")
+                    response = {"status": "Master password set"}
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'add_password':
                 if master_key is None:
-                    response = {'error': 'Master password not verified'}
+                    response = {"error": "Master password not verified"}
                 else:
                     site = data.get('site')
                     username = data.get('username')
@@ -353,13 +353,14 @@ def main():
                     notes = data.get('notes', '')
                     category = data.get('category', '')
                     add_password(master_key, site, username, password, notes, category)
-                    response = {'status': 'Password added'}
-                logging.debug(f"Response: {response}")
+                    response = {"status": "Password added"}
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'update_password':
                 if master_key is None:
-                    response = {'error': 'Master password not verified'}
+                    response = {"error": "Master password not verified"}
                 else:
                     entry_id = data.get('id')
                     site = data.get('site')
@@ -368,69 +369,76 @@ def main():
                     notes = data.get('notes')
                     category = data.get('category')
                     update_password(master_key, entry_id, site, username, password, notes, category)
-                    response = {'status': 'Password updated'}
-                logging.debug(f"Response: {response}")
+                    response = {"status": "Password updated"}
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'delete_password':
                 if master_key is None:
-                    response = {'error': 'Master password not verified'}
+                    response = {"error": "Master password not verified"}
                 else:
                     entry_id = data.get('id')
                     delete_password(entry_id)
-                    response = {'status': 'Password deleted'}
-                logging.debug(f"Response: {response}")
+                    response = {"status": "Password deleted"}
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'get_passwords':
                 if master_key is None:
-                    response = {'error': 'Master password not verified'}
+                    response = {"error": "Master password not verified"}
                 else:
                     passwords = get_passwords(master_key)
-                    response = {'passwords': passwords}
-                logging.debug(f"Response: {response}")
+                    response = {"passwords": passwords}
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'setup_mfa':
                 if master_key is None:
-                    response = {'error': 'Master password not verified'}
+                    response = {"error": "Master password not verified"}
                 else:
                     response = setup_mfa(master_key)
-                logging.debug(f"Response: {response}")
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'verify_mfa':
                 if master_key is None:
-                    response = {'error': 'Master password not verified'}
+                    response = {"error": "Master password not verified"}
                 else:
                     token = data.get('token')
                     response = verify_mfa(master_key, token)
-                logging.debug(f"Response: {response}")
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             elif command == 'is_mfa_enabled':
                 if master_key is None:
-                    response = {'error': 'Master password not verified'}
+                    response = {"error": "Master password not verified"}
                 else:
                     response = is_mfa_enabled(master_key)
-                logging.debug(f"Response: {response}")
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
             else:
-                response = {'error': 'Unknown command'}
+                response = {"error": "Unknown command"}
                 logging.warning(f"Unknown command received: {command}")
-                logging.debug(f"Response: {response}")
+                print(json.dumps(response))  # Send JSON to stdout
                 sys.stdout.flush()
+                logging.debug(f"Response: {response}")
 
         except json.JSONDecodeError as e:
             logging.error(f"JSON decode error: {e}", exc_info=True)
-            response = {'error': 'Invalid JSON format'}
-            logging.debug(f"Response: {response}")
+            response = {"error": "Invalid JSON format"}
+            print(json.dumps(response))  # Send error to stdout
             sys.stdout.flush()
         except Exception as e:
             logging.error("An unexpected error occurred:", exc_info=True)
-            response = {'error': 'An internal error occurred'}
-            logging.debug(f"Response: {response}")
+            response = {"error": "An internal error occurred"}
+            print(json.dumps(response))  # Send error to stdout
             sys.stdout.flush()
 
 if __name__ == '__main__':
