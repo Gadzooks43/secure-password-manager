@@ -8,7 +8,7 @@ let pythonProcess;
 let commandQueue = [];
 let clipboardTimeout;
 
-const logFile = path.join(app.getPath('userData'), 'main.log'); // Log file in userData directory
+const logFile = path.join(app.getPath('userData'), 'main.log');
 
 /**
  * Logs messages with timestamps to the main.log file.
@@ -36,12 +36,12 @@ function createWindow() {
     },
   });
 
+  // Always load the local index.html file
+  win.loadFile(path.join(__dirname, 'build', 'index.html'));
+
   if (isDev) {
-    win.loadURL('http://localhost:3000');
     // Optionally open the DevTools
     win.webContents.openDevTools();
-  } else {
-    win.loadFile(path.join(__dirname, 'build', 'index.html'));
   }
 
   win.on('closed', () => {
@@ -55,39 +55,49 @@ function createWindow() {
  */
 function startPythonProcess(retryCount = 0) {
   const maxRetries = 3;
-  let backendExecutable = '';
+  let pythonExecutable = '';
+  let backendPath = '';
+  let spawnArgs = [];
 
-  // Determine the backend executable based on the platform
-  if (process.platform === 'win32') {
-    backendExecutable = 'backend.exe';
-  } else if (process.platform === 'darwin') {
-    backendExecutable = 'backend'; // Assuming macOS backend
-  } else if (process.platform === 'linux') {
-    backendExecutable = 'backend'; // Assuming Linux backend
+  if (isDev) {
+    // Development mode: run backend.py with the Python interpreter
+    pythonExecutable = process.platform === 'win32' ? 'python' : 'python3';
+    backendPath = path.join(__dirname, 'backend', 'backend.py');
+
+    // Check if backend.py exists
+    if (!fs.existsSync(backendPath)) {
+      log(`Backend script not found at: ${backendPath}`);
+      dialog.showErrorBox('Backend Not Found', `The backend script was not found at: ${backendPath}\nPlease ensure it exists.`);
+      return;
+    }
+
+    spawnArgs = [backendPath];
+
   } else {
-    log(`Unsupported platform: ${process.platform}`);
-    dialog.showErrorBox('Unsupported Platform', `Your platform (${process.platform}) is not supported.`);
-    return;
-  }
+    // Production mode: use the compiled backend executable
+    if (process.platform === 'win32') {
+      pythonExecutable = path.join(process.resourcesPath, 'backend', 'backend.exe');
+    } else if (process.platform === 'darwin') {
+      pythonExecutable = path.join(process.resourcesPath, 'backend', 'backend');
+    } else if (process.platform === 'linux') {
+      pythonExecutable = path.join(process.resourcesPath, 'backend', 'backend');
+    } else {
+      log(`Unsupported platform: ${process.platform}`);
+      dialog.showErrorBox('Unsupported Platform', `Your platform (${process.platform}) is not supported.`);
+      return;
+    }
 
-  // Determine the path to the backend executable
-  const backendPath = isDev
-    ? path.join(__dirname, 'backend', 'dist', process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux', backendExecutable)
-    : path.join(process.resourcesPath, 'backend', backendExecutable);
-
-  log(`Attempting to start backend executable at: ${backendPath}`);
-
-  // Check if the backend executable exists
-  if (!fs.existsSync(backendPath)) {
-    log(`Backend executable not found at: ${backendPath}`);
-    dialog.showErrorBox('Backend Not Found', `The backend executable was not found at: ${backendPath}\nPlease ensure it is built correctly.`);
-    return;
+    if (!fs.existsSync(pythonExecutable)) {
+      log(`Backend executable not found at: ${pythonExecutable}`);
+      dialog.showErrorBox('Backend Not Found', `The backend executable was not found at: ${pythonExecutable}\nPlease ensure it is built correctly.`);
+      return;
+    }
   }
 
   // Spawn the backend process
-  pythonProcess = spawn(backendPath, [], {
-    cwd: path.dirname(backendPath),
-    detached: true,
+  pythonProcess = spawn(pythonExecutable, spawnArgs, {
+    cwd: isDev ? path.dirname(backendPath) : path.dirname(pythonExecutable),
+    detached: !isDev, // Detach the child process in production mode
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true, // Hide the console window on Windows
   });
@@ -137,16 +147,8 @@ function startPythonProcess(retryCount = 0) {
   pythonProcess.on('close', (code) => {
     log(`Python process exited with code ${code}`);
     console.warn(`Python process exited with code ${code}`);
-    dialog.showErrorBox('Backend Crashed', `The backend process has exited unexpectedly with code ${code}. The application will now exit.`);
-    app.quit();
-  });
-
-  // Handle backend process exit with signal
-  pythonProcess.on('exit', (code, signal) => {
-    log(`Python process exited with code ${code}, signal ${signal}`);
-    console.warn(`Python process exited with code ${code}, signal ${signal}`);
     if (code !== 0) {
-      dialog.showErrorBox('Backend Crashed', `The backend process exited with code ${code}. The application will now exit.`);
+      dialog.showErrorBox('Backend Crashed', `The backend process has exited unexpectedly with code ${code}. The application will now exit.`);
       app.quit();
     }
   });
@@ -221,6 +223,7 @@ app.on('before-quit', () => {
     pythonProcess.kill();
   }
 });
+
 
 // IPC handlers with enhanced logging and error handling
 

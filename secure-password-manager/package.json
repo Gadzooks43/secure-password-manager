@@ -5,7 +5,7 @@
   "scripts": {
     "start": "npm run build && electron .",
     "dev": "webpack serve",
-    "build": "react-scripts build",
+    "build": "webpack",
     "build-win": "set BUILD_TARGET=win&& npm run electron-pack",
     "electron-dev": "concurrently \"cross-env BROWSER=none npm start\" \"wait-on http://localhost:3000 && electron .\"",
     "build-backend": "python build_backend.py",
