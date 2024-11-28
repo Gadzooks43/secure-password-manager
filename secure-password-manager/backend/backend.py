@@ -19,7 +19,7 @@ DB_FILE = 'passwords.db'
 SALT_FILE = 'salt.bin'
 MASTER_PASSWORD_FILE = 'master_password.bin'
 TOTP_SECRET_FILE = 'totp_secret.bin'
-MFA_ENABLED = False  # Set to False to disable MFA globally
+MFA_ENABLED = True  # Set to False to disable MFA globally
 
 logging.basicConfig(
     level=logging.DEBUG,

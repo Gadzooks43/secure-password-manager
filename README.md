@@ -44,15 +44,23 @@ Before setting up the project, ensure you have the following software installed 
 secure-password-manager/
 ├── backend/
 │   ├── backend.py
-│   ├── build_backend.py
 │   ├── requirements.txt
-│   ├── venv/
-│   └── (other backend files)
+│   └── venv/
 ├── public/
 │   └── index.html
 ├── src/
+│   ├── components/
+│   │   ├── AddPassword.jsx
+│   │   ├── Login.jsx
+│   │   ├── MFAVerification.jsx
+│   │   ├── Navbar.jsx
+│   │   ├── PasswordGeneratorButton.jsx
+│   │   ├── PasswordList.jsx
+│   │   ├── Settings.jsx
+│   │   └── (other component files)
 │   ├── index.jsx
-│   └── App.jsx
+│   ├── App.jsx
+│   └── theme.js
 ├── dist/
 │   └── (build outputs)
 ├── .babelrc
@@ -64,8 +72,7 @@ secure-password-manager/
 ├── preload.js
 ├── README.md
 ├── setup_and_run.sh
-├── setup_and_run.bat
-└── (other configuration files)
+└── setup_and_run.bat
 ```
 
 ---
