@@ -16,14 +16,14 @@ echo "========================================"
 cd backend
 
 echo "Creating virtual environment..."
-python3 -m venv venv
+python -m venv venv
 if [ $? -ne 0 ]; then
     echo "Error creating virtual environment."
     exit 1
 fi
 
 echo "Activating virtual environment..."
-source venv/bin/activate
+source venv/Scripts/activate
 if [ $? -ne 0 ]; then
     echo "Error activating virtual environment."
     exit 1
@@ -36,9 +36,6 @@ if [ $? -ne 0 ]; then
     deactivate
     exit 1
 fi
-
-echo "Deactivating virtual environment..."
-deactivate
 
 cd ..
 

@@ -71,8 +71,7 @@ secure-password-manager/
 ├── main.js
 ├── preload.js
 ├── README.md
-├── setup_and_run.sh
-└── setup_and_run.bat
+└── setup_and_run.sh
 ```
 
 ---
@@ -95,7 +94,7 @@ secure-password-manager/
    In the project root directory, run:
 
    ```bash
-   setup_and_run.bat
+   ./setup_and_run.sh
    ```
 
    This script will:
