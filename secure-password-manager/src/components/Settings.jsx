@@ -25,16 +25,16 @@ function Settings({
   isMFAEnabled,
 }) {
   return (
-    <Grid2 container spacing={2} sx={{ padding: 2 }}>
+    <Grid2 container spacing={1} sx={{ padding: 2 }}>
       <Grid2 xs={12}>
-        <Typography variant="h5" gutterBottom>
+        <Typography variant="h6" gutterBottom align="center">
           Settings
         </Typography>
       </Grid2>
 
       {/* Password Generator Settings */}
-      <Grid2 xs={12} md={6}>
-        <Typography variant="h6" gutterBottom>
+      <Grid2 xs={12}>
+        <Typography variant="subtitle1" gutterBottom>
           Password Generator Settings
         </Typography>
         <TextField
@@ -44,13 +44,15 @@ function Settings({
           value={passwordLength}
           onChange={(e) => setPasswordLength(Number(e.target.value))}
           fullWidth
-          margin="normal"
+          size="small"
+          margin="dense"
         />
         <FormControlLabel
           control={
             <Checkbox
               checked={includeUppercase}
               onChange={(e) => setIncludeUppercase(e.target.checked)}
+              size="small"
             />
           }
           label="Include Uppercase Letters"
@@ -60,6 +62,7 @@ function Settings({
             <Checkbox
               checked={includeLowercase}
               onChange={(e) => setIncludeLowercase(e.target.checked)}
+              size="small"
             />
           }
           label="Include Lowercase Letters"
@@ -69,6 +72,7 @@ function Settings({
             <Checkbox
               checked={includeNumbers}
               onChange={(e) => setIncludeNumbers(e.target.checked)}
+              size="small"
             />
           }
           label="Include Numbers"
@@ -78,6 +82,7 @@ function Settings({
             <Checkbox
               checked={includeSymbols}
               onChange={(e) => setIncludeSymbols(e.target.checked)}
+              size="small"
             />
           }
           label="Include Symbols"
@@ -85,11 +90,18 @@ function Settings({
       </Grid2>
 
       {/* MFA Settings */}
-      <Grid2 xs={12} md={6}>
-        <Typography variant="h6" gutterBottom>
+      <Grid2 xs={12} sx={{ marginTop: 2 }}>
+        <Typography variant="subtitle1" gutterBottom>
           MFA Settings
         </Typography>
-        <Button variant="contained" color="primary" onClick={handleSetupMFA}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSetupMFA}
+          size="small"
+          sx={{ marginTop: 1 }}
+          fullWidth
+        >
           {isMFAEnabled ? 'MFA Enabled' : 'Enable MFA'}
         </Button>
       </Grid2>

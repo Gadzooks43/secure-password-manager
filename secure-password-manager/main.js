@@ -27,8 +27,9 @@ function log(message) {
  */
 function createWindow() {
   const win = new BrowserWindow({
-    width: 800,
+    width: 400,
     height: 600,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false, // Important for security
@@ -144,15 +145,25 @@ function startPythonProcess(retryCount = 0) {
   });
 
   // Handle backend process exit
-  pythonProcess.on('close', (code) => {
-    log(`Python process exited with code ${code}`);
-    console.warn(`Python process exited with code ${code}`);
-    if (code !== 0) {
-      dialog.showErrorBox('Backend Crashed', `The backend process has exited unexpectedly with code ${code}. The application will now exit.`);
+  pythonProcess.on('close', (code, signal) => {
+    log(`Python process exited with code ${code} and signal ${signal}`);
+    console.warn(`Python process exited with code ${code} and signal ${signal}`);
+  
+    if (!isQuitting && code !== 0 && code !== null) {
+      dialog.showErrorBox(
+        'Backend Crashed',
+        `The backend process has exited unexpectedly with code ${code}. The application will now exit.`
+      );
       app.quit();
+    } else {
+      log('Python backend process exited normally.');
     }
   });
-
+  
+  pythonProcess.on('exit', (code, signal) => {
+    log(`Python process exited with code ${code} and signal ${signal}`);
+  });
+  
   log('Python backend process started');
 }
 
@@ -171,6 +182,21 @@ function sendCommandToPython(command, data) {
     }
 
     const message = JSON.stringify({ command, data }) + '\n';
+
+    // Special handling for shutdown command
+    if (command === 'shutdown') {
+      pythonProcess.stdin.write(message, (err) => {
+        if (err) {
+          log(`Failed to write shutdown command to Python process stdin: ${err}`);
+          reject(err);
+        } else {
+          log(`Sent shutdown command to Python backend`);
+          resolve({ status: 'shutdown sent' });
+        }
+      });
+      return;
+    }
+
     commandQueue.push({ resolve, reject });
 
     pythonProcess.stdin.write(message, (err) => {
@@ -183,6 +209,7 @@ function sendCommandToPython(command, data) {
     });
   });
 }
+
 
 /**
  * Handles the creation of the application window and starts the backend process.
@@ -204,10 +231,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   log('All windows closed');
   if (process.platform !== 'darwin') {
-    if (pythonProcess) {
-      log('Killing Python backend process');
-      pythonProcess.kill();
-    }
     app.quit();
   }
 });
@@ -215,14 +238,27 @@ app.on('window-all-closed', () => {
 /**
  * Handles cleanup before the application quits.
  */
-app.on('before-quit', () => {
+let isQuitting = false;
+
+app.on('before-quit', async (event) => {
   log('Application is quitting');
+  isQuitting = true; // Set the flag to indicate we're quitting
   clipboard.clear();
+
   if (pythonProcess) {
-    log('Terminating Python backend process');
-    pythonProcess.kill();
+    log('Sending shutdown command to Python backend process');
+    try {
+      await sendCommandToPython('shutdown', {});
+      log('Shutdown command sent to Python backend process');
+    } catch (err) {
+      log(`Error sending shutdown command: ${err}`);
+    }
+
+    // Wait for the backend process to exit
+    pythonProcess.stdin.end(); // Close stdin to ensure backend knows we're done
   }
 });
+
 
 
 // IPC handlers with enhanced logging and error handling

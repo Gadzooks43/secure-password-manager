@@ -13,6 +13,7 @@ import qrcode
 from io import BytesIO
 import logging
 import traceback
+import signal
 
 DB_FILE = 'passwords.db'
 SALT_FILE = 'salt.bin'
@@ -27,6 +28,10 @@ logging.basicConfig(
         logging.StreamHandler(sys.stderr)
     ]
 )
+
+def handle_exit_signals(signum, frame):
+    logging.info(f"Received signal {signum}. Exiting backend process.")
+    sys.exit(0)
 
 def hash_master_password(password):
     try:
@@ -317,6 +322,12 @@ def main():
             data = request.get('data')
             logging.debug(f"Received command: {command}")
 
+            if command == 'shutdown':
+                logging.info('Shutdown command received. Exiting backend process.')
+                print(json.dumps({"status": "shutdown"}))
+                sys.stdout.flush()
+                break # Exit the loop to end the process
+
             if command == 'is_master_password_set':
                 if os.path.exists(MASTER_PASSWORD_FILE):
                     response = {"isSet": True}
@@ -442,4 +453,6 @@ def main():
             sys.stdout.flush()
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, handle_exit_signals)
+    signal.signal(signal.SIGTERM, handle_exit_signals)
     main()

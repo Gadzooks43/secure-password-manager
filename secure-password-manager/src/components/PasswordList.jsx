@@ -40,7 +40,7 @@ function PasswordList({
   );
 
   return (
-    <Grid2 container spacing={2} sx={{ padding: 2 }}>
+    <Grid2 container spacing={1} sx={{ padding: 2 }}>
       {/* Search and Filter */}
       <Grid2 xs={12}>
         <TextField
@@ -48,9 +48,12 @@ function PasswordList({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           fullWidth
-          margin="normal"
+          size="small"
+          margin="dense"
         />
-        <FormControl fullWidth margin="normal">
+      </Grid2>
+      <Grid2 xs={12}>
+        <FormControl fullWidth size="small" margin="dense">
           <InputLabel>Category</InputLabel>
           <Select
             value={searchQuery}
@@ -69,44 +72,59 @@ function PasswordList({
 
       {/* Password List */}
       <Grid2 xs={12}>
-        <Grid2 container spacing={2}>
+        <Grid2 container spacing={1}>
           {filteredPasswords.map((entry) => (
-            <Grid2 xs={12} md={6} lg={4} key={entry.id}>
-              <Card>
+            <Grid2 xs={12} key={entry.id}>
+              <Card variant="outlined">
                 <CardContent>
-                  <Typography variant="h6">{entry.site}</Typography>
-                  <Typography variant="body2">Username: {entry.username}</Typography>
+                  <Typography variant="subtitle1" component="div">
+                    {entry.site}
+                  </Typography>
                   <Typography variant="body2">
-                    Password: {showPasswords ? entry.password : '•'.repeat(8)}
+                    <strong>Username:</strong> {entry.username}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Password:</strong>{' '}
+                    {showPasswords ? entry.password : '•'.repeat(8)}
                     <IconButton
                       onClick={() => setShowPasswords(!showPasswords)}
                       size="small"
                     >
-                      {showPasswords ? <VisibilityOff /> : <Visibility />}
+                      {showPasswords ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                     </IconButton>
                   </Typography>
                   {entry.category && (
-                    <Typography variant="body2">Category: {entry.category}</Typography>
+                    <Typography variant="body2">
+                      <strong>Category:</strong> {entry.category}
+                    </Typography>
                   )}
                   {entry.notes && (
-                    <Typography variant="body2">Notes: {entry.notes}</Typography>
+                    <Typography variant="body2">
+                      <strong>Notes:</strong> {entry.notes}
+                    </Typography>
                   )}
                 </CardContent>
-                <CardActions>
+                <CardActions disableSpacing>
                   <IconButton
                     onClick={() => handleCopyPassword(entry.password)}
                     color="primary"
+                    size="small"
                   >
-                    <ContentCopyIcon />
+                    <ContentCopyIcon fontSize="small" />
                   </IconButton>
-                  <IconButton onClick={() => handleEditPassword(entry)} color="primary">
-                    <Edit />
+                  <IconButton
+                    onClick={() => handleEditPassword(entry)}
+                    color="primary"
+                    size="small"
+                  >
+                    <Edit fontSize="small" />
                   </IconButton>
                   <IconButton
                     onClick={() => handleDeletePassword(entry.id)}
                     color="secondary"
+                    size="small"
                   >
-                    <Delete />
+                    <Delete fontSize="small" />
                   </IconButton>
                 </CardActions>
               </Card>
