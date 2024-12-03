@@ -17,7 +17,6 @@ A secure and user-friendly password manager application that leverages strong en
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
-- [Contact](#contact)
 - [Contributing](#contributing)
 - [Acknowledgments](#acknowledgments)
 
@@ -80,14 +79,9 @@ secure-password-manager/
 
 ### Windows
 
-1. **Clone the Repository**
+1. **Unzip Project**
 
-   Open **Command Prompt** or **PowerShell** and clone the repository:
-
-   ```bash
-   git clone https://github.com/yourusername/secure-password-manager.git
-   cd secure-password-manager
-   ```
+   Open the provided zip file and open the project in your prefered IDE or Text Editor (VSCode was used by the creators)
 
 2. **Run the Setup Script**
 
@@ -123,14 +117,9 @@ secure-password-manager/
 
 ### macOS
 
-1. **Clone the Repository**
+1. **Unzip Project**
 
-   Open **Terminal** and clone the repository:
-
-   ```bash
-   git clone https://github.com/yourusername/secure-password-manager.git
-   cd secure-password-manager
-   ```
+   Open the provided zip file and open the project in your prefered IDE or Text Editor (VSCode was used by the creators)
 
 2. **Make the Setup Script Executable**
 
@@ -160,14 +149,9 @@ secure-password-manager/
 
 ### Linux
 
-1. **Clone the Repository**
+1. **Unzip Project**
 
-   Open **Terminal** and clone the repository:
-
-   ```bash
-   git clone https://github.com/yourusername/secure-password-manager.git
-   cd secure-password-manager
-   ```
+   Open the provided zip file and open the project in your prefered IDE or Text Editor (VSCode was used by the creators)
 
 2. **Make the Setup Script Executable**
 
@@ -548,16 +532,6 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-## Contact
-
-For any questions or feedback, please reach out to:
-
-- **Name:** Isaac [Your Last Name]
-- **Email:** your.email@example.com
-- **GitHub:** [yourusername](https://github.com/yourusername)
-
----
-
 ## Contributing
 
 Contributions are welcome! Please follow these steps to contribute:
@@ -591,21 +565,3 @@ Please ensure your contributions adhere to the project's coding standards and in
 - **Electron Builder:** For packaging and distributing the Electron application.
 
 ---
-
-## Additional Notes
-
-- **Python Version Compatibility:**
-  - Ensure you are using Python version `3.10` or higher for optimal compatibility with PyInstaller and other dependencies.
-
-- **Virtual Environment Management:**
-  - The backend uses a Python virtual environment located in `backend/venv`. Ensure it's activated when running backend scripts manually.
-
-- **Environment Variables:**
-  - The build process relies on the `BUILD_TARGET` environment variable. This is handled automatically by the build scripts.
-
-- **Logging:**
-  - The application maintains a `main.log` file for monitoring and troubleshooting. Ensure appropriate permissions are set to allow the application to write logs.
-
-- **Security Considerations:**
-  - Always keep your dependencies updated to mitigate potential security vulnerabilities.
-  - Regularly review and audit the application's security features, especially encryption and authentication mechanisms.
