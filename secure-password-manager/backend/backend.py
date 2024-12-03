@@ -14,6 +14,7 @@ from io import BytesIO
 import logging
 import traceback
 import signal
+from pyargon2 import hash
 
 DB_FILE = 'passwords.db'
 SALT_FILE = 'salt.bin'
@@ -35,11 +36,18 @@ def handle_exit_signals(signum, frame):
 
 def hash_master_password(password):
     try:
-        salt = os.urandom(16)
-        iterations = 300_000
-        password_hash = PBKDF2(password.encode(), salt, dkLen=32, count=iterations, hmac_hash_module=SHA256)
+        salt = os.urandom(16).hex()
+        password_hash = hash(
+            password=password,
+            salt=salt,
+            time_cost=2,
+            memory_cost=102400,
+            parallelism=8,
+            hash_len=32
+        )
         with open(MASTER_PASSWORD_FILE, 'wb') as f:
-            f.write(salt + iterations.to_bytes(4, 'big') + password_hash)
+            f.write(salt.encode() + b'\n' + password_hash.encode())
+
         os.chmod(MASTER_PASSWORD_FILE, stat.S_IRUSR | stat.S_IWUSR)
         logging.info('Master password hashed and stored successfully.')
     except Exception as e:
@@ -52,14 +60,19 @@ def verify_master_password(password):
             return False, None
 
         with open(MASTER_PASSWORD_FILE, 'rb') as f:
-            data = f.read()
-        salt = data[:16]
-        iterations = int.from_bytes(data[16:20], 'big')
-        stored_password_hash = data[20:]
-        password_hash = PBKDF2(password.encode(), salt, dkLen=32, count=iterations, hmac_hash_module=SHA256)
-
+            data = f.read().split(b'\n')
+        salt = data[0].decode()
+        stored_password_hash = data[1].decode()
+        password_hash = hash(
+            password=password,
+            salt=salt,
+            time_cost=2,
+            memory_cost=102400,
+            parallelism=8,
+            hash_len=32
+        )
         if hmac.compare_digest(password_hash, stored_password_hash):
-            master_key = get_master_key(password, iterations)
+            master_key = get_master_key(password, salt)
             logging.info('Master password verified successfully.')
             return True, master_key
         else:
@@ -69,45 +82,72 @@ def verify_master_password(password):
         logging.error('Error verifying master password:', exc_info=True)
         return False, None
 
-def get_master_key(password, iterations=300_000):
+def get_master_key(password, salt=None):
     try:
-        if os.path.exists(SALT_FILE):
-            with open(SALT_FILE, 'rb') as f:
-                salt = f.read()
-        else:
-            salt = os.urandom(16)
-            with open(SALT_FILE, 'wb') as f:
-                f.write(salt)
-        master_key = PBKDF2(password.encode(), salt, dkLen=32, count=iterations, hmac_hash_module=SHA256)
+        if salt is None:
+            if os.path.exists(MASTER_PASSWORD_FILE):
+                with open(MASTER_PASSWORD_FILE, 'rb') as f:
+                    salt = f.read().split(b'\n')[0].decode()
+            else:
+                salt = os.urandom(16).hex()
+        master_key = hash(
+            password=password,
+            salt=salt,
+            time_cost=2,
+            memory_cost=102400,
+            parallelism=8,
+            hash_len=32
+        )
         logging.debug('Master key derived successfully.')
-        return master_key
+        return master_key.encode('utf-8')
     except Exception as e:
         logging.error('Error generating master key:', exc_info=True)
         return None
 
 def encrypt(master_key, plaintext):
     try:
-        nonce = os.urandom(12)  # AES-GCM recommends a 12-byte nonce
-        cipher = AES.new(master_key, AES.MODE_GCM, nonce=nonce)
+        salt = os.urandom(16).hex()
+        hashed_key = hash(
+            password=master_key,
+            salt=salt,
+            time_cost=2,
+            memory_cost=102400,
+            parallelism=8,
+            hash_len=64
+        )
+        aes_key = hashed_key[:32].encode('utf-8')
+        nonce = os.urandom(12)
+        cipher = AES.new(aes_key, AES.MODE_GCM, nonce=nonce)
         ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode())
-        # Store nonce + tag + ciphertext
-        encrypted_data = base64.b64encode(nonce + tag + ciphertext).decode()
+        encrypted_data = base64.b64encode(salt.encode() + nonce + tag + ciphertext).decode()
         logging.debug('Data encrypted successfully.')
         return encrypted_data
+
     except (ValueError, KeyError) as e:
         logging.error(f"Encryption failed: {e}", exc_info=True)
         return None
-
+    
 def decrypt(master_key, encrypted_data):
     try:
-        encrypted_data = base64.b64decode(encrypted_data)
-        nonce = encrypted_data[:12]        # First 12 bytes for nonce
-        tag = encrypted_data[12:28]        # Next 16 bytes for tag
-        ciphertext = encrypted_data[28:]   # Remaining bytes for ciphertext
-        cipher = AES.new(master_key, AES.MODE_GCM, nonce=nonce)
-        plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+        data = base64.b64decode(encrypted_data)
+        salt = data[:32].decode()
+        nonce = data[32:44]
+        tag = data[44:60]
+        ciphertext = data[60:]
+        hashed_key = hash(
+            password=master_key,
+            salt=salt,
+            time_cost=2,
+            memory_cost=102400,
+            parallelism=8,
+            hash_len=64
+        )
+        aes_key = hashed_key[:32].encode('utf-8')
+        cipher = AES.new(aes_key, AES.MODE_GCM, nonce=nonce)
+        plaintext = cipher.decrypt_and_verify(ciphertext, tag).decode()
         logging.debug('Data decrypted successfully.')
-        return plaintext.decode()
+        return plaintext
+
     except (ValueError, KeyError) as e:
         logging.error(f"Decryption failed: {e}", exc_info=True)
         return None
