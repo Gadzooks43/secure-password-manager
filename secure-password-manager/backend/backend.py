@@ -14,13 +14,15 @@ from io import BytesIO
 import logging
 import traceback
 import signal
-from pyargon2 import hash
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+from argon2.low_level import hash_secret_raw, Type
 
 DB_FILE = 'passwords.db'
 SALT_FILE = 'salt.bin'
 MASTER_PASSWORD_FILE = 'master_password.bin'
 TOTP_SECRET_FILE = 'totp_secret.bin'
-MFA_ENABLED = True  # Set to False to disable MFA globally
+MFA_ENABLED = False  # Set to False to disable MFA globally
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -30,23 +32,57 @@ logging.basicConfig(
     ]
 )
 
+# Initialize Argon2 Password Hasher
+ph = PasswordHasher(
+    time_cost=2,
+    memory_cost=102400,  # in kibibytes (100 MB)
+    parallelism=8,
+    hash_len=32,
+    salt_len=16,
+    type=Type.ID
+)
+
 def handle_exit_signals(signum, frame):
     logging.info(f"Received signal {signum}. Exiting backend process.")
     sys.exit(0)
 
-def hash_master_password(password):
+def get_master_key(password):
     try:
-        salt = os.urandom(16).hex()
-        password_hash = hash(
-            password=password,
+        if os.path.exists(SALT_FILE):
+            # Read the existing salt
+            with open(SALT_FILE, 'rb') as f:
+                salt = f.read()
+            logging.debug('Salt loaded from existing salt file.')
+        else:
+            # Generate a new salt and store it
+            salt = os.urandom(16)
+            with open(SALT_FILE, 'wb') as f:
+                f.write(salt)
+            os.chmod(SALT_FILE, stat.S_IRUSR | stat.S_IWUSR)
+            logging.debug('New salt generated and stored.')
+        
+        # Derive the master key using Argon2
+        master_key = hash_secret_raw(
+            secret=password.encode('utf-8'),
             salt=salt,
             time_cost=2,
-            memory_cost=102400,
+            memory_cost=102400,  # in kibibytes (100 MB)
             parallelism=8,
-            hash_len=32
+            hash_len=32,
+            type=Type.ID
         )
-        with open(MASTER_PASSWORD_FILE, 'wb') as f:
-            f.write(salt.encode() + b'\n' + password_hash.encode())
+        logging.debug('Master key derived successfully.')
+        return master_key
+    except Exception as e:
+        logging.error('Error generating master key:', exc_info=True)
+        return None
+
+def hash_master_password(password):
+    try:
+        # Hash the password using argon2-cffi
+        password_hash = ph.hash(password)
+        with open(MASTER_PASSWORD_FILE, 'w') as f:
+            f.write(password_hash)
 
         os.chmod(MASTER_PASSWORD_FILE, stat.S_IRUSR | stat.S_IWUSR)
         logging.info('Master password hashed and stored successfully.')
@@ -59,95 +95,52 @@ def verify_master_password(password):
             logging.warning('Master password file does not exist.')
             return False, None
 
-        with open(MASTER_PASSWORD_FILE, 'rb') as f:
-            data = f.read().split(b'\n')
-        salt = data[0].decode()
-        stored_password_hash = data[1].decode()
-        password_hash = hash(
-            password=password,
-            salt=salt,
-            time_cost=2,
-            memory_cost=102400,
-            parallelism=8,
-            hash_len=32
-        )
-        if hmac.compare_digest(password_hash, stored_password_hash):
-            master_key = get_master_key(password, salt)
-            logging.info('Master password verified successfully.')
-            return True, master_key
-        else:
-            logging.warning('Master password verification failed.')
-            return False, None
+        with open(MASTER_PASSWORD_FILE, 'r') as f:
+            stored_password_hash = f.read()
+
+        # Verify the password
+        ph.verify(stored_password_hash, password)
+
+        # If verification is successful, derive the master key
+        master_key = get_master_key(password)
+        logging.info('Master password verified successfully.')
+        return True, master_key
+
+    except VerifyMismatchError:
+        logging.warning('Master password verification failed.')
+        return False, None
     except Exception as e:
         logging.error('Error verifying master password:', exc_info=True)
         return False, None
 
-def get_master_key(password, salt=None):
-    try:
-        if salt is None:
-            if os.path.exists(MASTER_PASSWORD_FILE):
-                with open(MASTER_PASSWORD_FILE, 'rb') as f:
-                    salt = f.read().split(b'\n')[0].decode()
-            else:
-                salt = os.urandom(16).hex()
-        master_key = hash(
-            password=password,
-            salt=salt,
-            time_cost=2,
-            memory_cost=102400,
-            parallelism=8,
-            hash_len=32
-        )
-        logging.debug('Master key derived successfully.')
-        return master_key.encode('utf-8')
-    except Exception as e:
-        logging.error('Error generating master key:', exc_info=True)
-        return None
-
 def encrypt(master_key, plaintext):
     try:
-        salt = os.urandom(16).hex()
-        hashed_key = hash(
-            password=master_key,
-            salt=salt,
-            time_cost=2,
-            memory_cost=102400,
-            parallelism=8,
-            hash_len=64
-        )
-        aes_key = hashed_key[:32].encode('utf-8')
+        salt = os.urandom(16)  # Separate salt for encryption
+        # Derive a unique key for encryption using PBKDF2 with SHA256
+        aes_key = PBKDF2(master_key, salt, dkLen=32, count=100000, hmac_hash_module=SHA256)
         nonce = os.urandom(12)
         cipher = AES.new(aes_key, AES.MODE_GCM, nonce=nonce)
         ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode())
-        encrypted_data = base64.b64encode(salt.encode() + nonce + tag + ciphertext).decode()
+        encrypted_data = base64.b64encode(salt + nonce + tag + ciphertext).decode()
         logging.debug('Data encrypted successfully.')
         return encrypted_data
-
     except (ValueError, KeyError) as e:
         logging.error(f"Encryption failed: {e}", exc_info=True)
         return None
-    
+
 def decrypt(master_key, encrypted_data):
     try:
         data = base64.b64decode(encrypted_data)
-        salt = data[:32].decode()
-        nonce = data[32:44]
-        tag = data[44:60]
-        ciphertext = data[60:]
-        hashed_key = hash(
-            password=master_key,
-            salt=salt,
-            time_cost=2,
-            memory_cost=102400,
-            parallelism=8,
-            hash_len=64
-        )
-        aes_key = hashed_key[:32].encode('utf-8')
+        salt = data[:16]
+        nonce = data[16:28]
+        tag = data[28:44]
+        ciphertext = data[44:]
+        # Derive the AES key using the same method as encryption
+        aes_key = PBKDF2(master_key, salt, dkLen=32, count=100000, hmac_hash_module=SHA256)
         cipher = AES.new(aes_key, AES.MODE_GCM, nonce=nonce)
         plaintext = cipher.decrypt_and_verify(ciphertext, tag).decode()
         logging.debug('Data decrypted successfully.')
         return plaintext
-
     except (ValueError, KeyError) as e:
         logging.error(f"Decryption failed: {e}", exc_info=True)
         return None
@@ -366,7 +359,7 @@ def main():
                 logging.info('Shutdown command received. Exiting backend process.')
                 print(json.dumps({"status": "shutdown"}))
                 sys.stdout.flush()
-                break # Exit the loop to end the process
+                break  # Exit the loop to end the process
 
             if command == 'is_master_password_set':
                 if os.path.exists(MASTER_PASSWORD_FILE):

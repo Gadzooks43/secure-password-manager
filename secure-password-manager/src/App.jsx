@@ -46,7 +46,7 @@ function App() {
 
   const [currentTab, setCurrentTab] = useState(0); // 0: Add, 1: Passwords, 2: Settings
 
-  const MFA_ENABLED = true; // Set to false to disable MFA globally
+  const MFA_ENABLED = false; // Set to false to disable MFA globally
 
   useEffect(() => {
     async function checkMasterPassword() {
