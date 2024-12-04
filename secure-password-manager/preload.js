@@ -11,4 +11,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   verifyMFA: (token) => ipcRenderer.invoke('verify-mfa', token),
   isMFAEnabled: () => ipcRenderer.invoke('is-mfa-enabled'),
   copyToClipboard: (text) => ipcRenderer.invoke('copy-to-clipboard', text),
+  mfaConfirmed: () => ipcRenderer.send('mfa_confirmed'),
 });

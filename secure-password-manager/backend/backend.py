@@ -22,7 +22,7 @@ DB_FILE = 'passwords.db'
 SALT_FILE = 'salt.bin'
 MASTER_PASSWORD_FILE = 'master_password.bin'
 TOTP_SECRET_FILE = 'totp_secret.bin'
-MFA_ENABLED = False  # Set to False to disable MFA globally
+MFA_ENABLED = True  # Set to False to disable MFA globally
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -343,6 +343,20 @@ def is_mfa_enabled(master_key):
     except Exception as e:
         logging.error('Error checking if MFA is enabled:', exc_info=True)
         return {'error': 'Failed to check MFA status'}
+    
+def disable_mfa(master_key):
+    try:
+        # Remove the TOTP secret file
+        if os.path.exists(TOTP_SECRET_FILE):
+            os.remove(TOTP_SECRET_FILE)
+            logging.info('MFA has been disabled and TOTP secret removed.')
+            return {"status": "MFA disabled"}
+        else:
+            logging.warning('Attempted to disable MFA, but TOTP secret file does not exist.')
+            return {"error": "MFA is not enabled."}
+    except Exception as e:
+        logging.error('Error disabling MFA:', exc_info=True)
+        return {"error": "Failed to disable MFA."}
 
 def main():
     init_db()
@@ -361,7 +375,16 @@ def main():
                 sys.stdout.flush()
                 break  # Exit the loop to end the process
 
-            if command == 'is_master_password_set':
+            elif command == 'disable_mfa':
+                if master_key is None:
+                    response = {"error": "Master password not verified"}
+                else:
+                    response = disable_mfa(master_key)
+                print(json.dumps(response))
+                sys.stdout.flush()
+                logging.debug(f"Response: {response}")
+
+            elif command == 'is_master_password_set':
                 if os.path.exists(MASTER_PASSWORD_FILE):
                     response = {"isSet": True}
                 else:

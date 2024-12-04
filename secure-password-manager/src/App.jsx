@@ -45,8 +45,10 @@ function App() {
   const [includeSymbols, setIncludeSymbols] = useState(false);
 
   const [currentTab, setCurrentTab] = useState(0); // 0: Add, 1: Passwords, 2: Settings
+  // New State to Track MFA Confirmation
+  const [isMFASetUp, setIsMFASetUp] = useState(false);
 
-  const MFA_ENABLED = false; // Set to false to disable MFA globally
+  const MFA_ENABLED = true; // Set to false to disable MFA globally
 
   useEffect(() => {
     async function checkMasterPassword() {
@@ -129,8 +131,10 @@ function App() {
     try {
       const response = await window.electronAPI.setupMFA();
       if (response.status === 'MFA setup') {
+        console.log('Response FRONTEND:', response);
         setQRCode(`data:image/png;base64,${response.qr_code}`);
         setIsMFAEnabled(true);
+        setIsMFASetUp(false); // MFA setup is pending
         setSnackbarMessage('MFA has been enabled.');
         setSnackbarOpen(true);
       } else {
@@ -138,6 +142,24 @@ function App() {
       }
     } catch (error) {
       console.error('Error setting up MFA:', error);
+      setErrorMessage('An error occurred. Please try again.');
+    }
+  };
+
+  const handleConfirmMFA = async (token) => {
+    try {
+      const response = await window.electronAPI.verifyMFA(token);
+      if (response.status === 'MFA verified') {
+        setIsMFASetUp(true);
+        window.electronAPI.mfaConfirmed(); // Notify main process that MFA is confirmed
+        setErrorMessage('');
+        setSnackbarMessage('MFA setup verified successfully.');
+        setSnackbarOpen(true);
+      } else {
+        setErrorMessage(response.error);
+      }
+    } catch (error) {
+      console.error('Error verifying MFA:', error);
       setErrorMessage('An error occurred. Please try again.');
     }
   };
@@ -311,6 +333,9 @@ function App() {
           setIncludeSymbols={setIncludeSymbols}
           handleSetupMFA={handleSetupMFA}
           isMFAEnabled={isMFAEnabled}
+          qrCode={qrCode}
+          isMFASetUp={isMFASetUp}
+          handleConfirmMFA={handleConfirmMFA}
         />
       )}
 

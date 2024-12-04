@@ -1,6 +1,4 @@
-// src/components/Settings.jsx
-
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Typography,
   TextField,
@@ -23,7 +21,23 @@ function Settings({
   setIncludeSymbols,
   handleSetupMFA,
   isMFAEnabled,
+  qrCode,
+  isMFASetUp,
+  handleConfirmMFA,
 }) {
+  const [mfaToken, setMFAToken] = useState('');
+  const [mfaError, setMFAError] = useState('');
+
+  const handleMFAConfirm = async () => {
+    try {
+      await handleConfirmMFA(mfaToken);
+      setMFAToken('');
+      setMFAError('');
+    } catch (error) {
+      setMFAError('Failed to verify MFA token.');
+    }
+  };
+
   return (
     <Grid2 container spacing={1} sx={{ padding: 2 }}>
       <Grid2 xs={12}>
@@ -94,16 +108,62 @@ function Settings({
         <Typography variant="subtitle1" gutterBottom>
           MFA Settings
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSetupMFA}
-          size="small"
-          sx={{ marginTop: 1 }}
-          fullWidth
-        >
-          {isMFAEnabled ? 'MFA Enabled' : 'Enable MFA'}
-        </Button>
+        {!isMFAEnabled && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSetupMFA}
+            size="small"
+            sx={{ marginTop: 1 }}
+            fullWidth
+          >
+            Enable MFA
+          </Button>
+        )}
+        {isMFAEnabled && !isMFASetUp && qrCode && (
+          <Grid2 container spacing={1} sx={{ marginTop: 1 }}>
+            <Grid2 xs={12}>
+              <Typography variant="body2">
+                Scan this QR code with your authenticator app:
+              </Typography>
+              <img src={qrCode} alt="MFA QR Code" style={{ width: '100%', maxWidth: '200px', marginTop: '10px' }} />
+            </Grid2>
+            <Grid2 xs={12}>
+              <TextField
+                label="Enter MFA Token"
+                value={mfaToken}
+                onChange={(e) => setMFAToken(e.target.value)}
+                fullWidth
+                size="small"
+                margin="dense"
+              />
+            </Grid2>
+            <Grid2 xs={12}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleMFAConfirm}
+                size="small"
+                fullWidth
+                disabled={!mfaToken}
+              >
+                Confirm MFA Setup
+              </Button>
+            </Grid2>
+            {mfaError && (
+              <Grid2 xs={12}>
+                <Typography variant="body2" color="error">
+                  {mfaError}
+                </Typography>
+              </Grid2>
+            )}
+          </Grid2>
+        )}
+        {isMFAEnabled && isMFASetUp && (
+          <Typography variant="body2" color="success.main" sx={{ marginTop: 1 }}>
+            MFA is enabled and verified.
+          </Typography>
+        )}
       </Grid2>
     </Grid2>
   );
