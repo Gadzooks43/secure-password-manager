@@ -4,7 +4,8 @@ REM Script to set up and run the Secure Password Manager
 echo ========================================
 echo Installing frontend dependencies...
 echo ========================================
-npm install
+call npm install
+echo After npm install...
 IF %ERRORLEVEL% NEQ 0 (
     echo Error installing frontend dependencies.
     EXIT /B 1
@@ -16,7 +17,7 @@ echo ========================================
 cd backend
 
 echo Creating virtual environment...
-python -m venv venv
+call python -m venv venv
 IF %ERRORLEVEL% NEQ 0 (
     echo Error creating virtual environment.
     EXIT /B 1
@@ -30,7 +31,7 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 echo Installing backend dependencies...
-pip install -r requirements.txt
+call pip install -r requirements.txt
 IF %ERRORLEVEL% NEQ 0 (
     echo Error installing backend dependencies.
     call deactivate.bat
@@ -42,4 +43,4 @@ cd ..
 echo ========================================
 echo Starting the application...
 echo ========================================
-npm run start
+call npm run start
