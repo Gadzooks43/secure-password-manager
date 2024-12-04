@@ -91,6 +91,12 @@ secure-password-manager/
 
    In the project root directory, run:
 
+   if you are using a windows cmd prompt:
+   ```bash
+   setup_and_run.bat
+   ```
+
+   if you are using a shell terminal, git bash, etc
    ```bash
    ./setup_and_run.sh
    ```
