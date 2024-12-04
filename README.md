@@ -79,6 +79,10 @@ secure-password-manager/
 
 ### Windows
 
+0. **Install System Requirements**
+  - Ensure that a current version of python (3.12 or greater) and a current version of Node.js is installed and on your path.
+  - Verify that npm and pip are working
+
 1. **Unzip Project**
 
    Open the provided zip file and open the project in your prefered IDE or Text Editor (VSCode was used by the creators)
@@ -117,6 +121,10 @@ secure-password-manager/
 
 ### macOS
 
+0. **Install System Requirements**
+  - Ensure that a current version of python (3.12 or greater) and a current version of Node.js is installed and on your path.
+  - Verify that npm and pip are working
+
 1. **Unzip Project**
 
    Open the provided zip file and open the project in your prefered IDE or Text Editor (VSCode was used by the creators)
@@ -148,6 +156,10 @@ secure-password-manager/
    ```
 
 ### Linux
+
+0. **Install System Requirements**
+  - Ensure that a current version of python (3.12 or greater) and a current version of Node.js is installed and on your path.
+  - Verify that npm and pip are working
 
 1. **Unzip Project**
 
