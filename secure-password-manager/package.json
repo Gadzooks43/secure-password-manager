@@ -10,7 +10,8 @@
     "electron-dev": "concurrently \"cross-env BROWSER=none npm start\" \"wait-on http://localhost:3000 && electron .\"",
     "build-backend": "python build_backend.py",
     "build-frontend": "webpack",
-    "electron-pack": "npm run build-backend && npm run build-frontend && node build.js"
+    "electron-pack": "npm run build-backend && npm run build-frontend && node build.js",
+    "test": "cross-env PYTHONPATH=. pytest --maxfail=1 --disable-warnings -q"
   },
   "build": {
     "appId": "com.isaackenney.securepasswordmanager",
@@ -69,6 +70,7 @@
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-react": "^7.25.9",
     "babel-loader": "^9.2.1",
+    "cross-env": "^7.0.3",
     "css-loader": "^7.1.2",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",

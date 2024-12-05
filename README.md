@@ -2,6 +2,8 @@
 
 A secure and user-friendly password manager application that leverages strong encryption techniques and multi-factor authentication to enhance user security.
 
+For Grading: Please navigate to the Prerequisites and Setup Instructions sections to setup and run the application. For testing, please navigate to the Testing section for instructions on how to run the test suite for the backend and perform manual testing for the frontend.
+
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [Project Structure](#project-structure)
@@ -15,6 +17,7 @@ A secure and user-friendly password manager application that leverages strong en
 - [Application Features](#application-features)
 - [Security Techniques](#security-techniques)
 - [Development](#development)
+- [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 - [Contributing](#contributing)
@@ -138,13 +141,13 @@ secure-password-manager/
 2. **Make the Setup Script Executable**
 
    ```bash
-   chmod +x setup_and_run.sh
+   chmod +x setup_and_run_mac.sh
    ```
 
 3. **Run the Setup Script**
 
    ```bash
-   ./setup_and_run.sh
+   ./setup_and_run_mac.sh
    ```
 
    This script will:
@@ -174,13 +177,13 @@ secure-password-manager/
 2. **Make the Setup Script Executable**
 
    ```bash
-   chmod +x setup_and_run.sh
+   chmod +x setup_and_run_mac.sh
    ```
 
 3. **Run the Setup Script**
 
    ```bash
-   ./setup_and_run.sh
+   ./setup_and_run_mac.sh
    ```
 
    This script will:
@@ -482,6 +485,20 @@ Open two separate terminal instances:
 
    This will launch the Electron application, connecting to the running backend and frontend.
 
+---
+
+## Testing
+
+### Manual Testing
+
+The manual testing document can be found in the test folder as "manual_testing.md". To do manual testing walk through each step of the document ensuring actions meet expected results and that the pass criteria are met
+
+## Backend Unit Tests
+To run the backend test suite
+
+```bash
+npm run test
+```
 ---
 
 ## Troubleshooting
