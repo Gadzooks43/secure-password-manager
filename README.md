@@ -499,6 +499,30 @@ To run the backend test suite
 ```bash
 npm run test
 ```
+
+**Ensure** that your python venv that was created in the setup script is activated.
+
+if not run:
+
+```bash
+cd backend
+```
+
+if windows:
+```bash
+venv/Scripts/activate
+```
+
+if macOS:
+```sh
+source venv/bin/activate
+```
+
+```bash
+cd ..
+npm run test
+```
+
 ---
 
 ## Troubleshooting
